@@ -199,6 +199,35 @@
     .cell.blank       { background: white; }
     .cell.placeholder { border: none; background: transparent; }
 
+    /* ── Math Problems ── */
+    .math-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px 24px;
+    }
+
+    .math-problem {
+      display: flex;
+      align-items: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      gap: 6px;
+      padding: 8px 4px;
+      border-bottom: 2px solid #ccc;
+    }
+
+    .math-answer-line {
+      display: inline-block;
+      width: 60px;
+      border-bottom: 3px solid #333;
+      height: 1.4em;
+      vertical-align: bottom;
+    }
+
+    @media (max-width: 600px) {
+      .math-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
     .error {
       background: #fdecea;
       color: #c62828;
@@ -232,6 +261,9 @@
       .cell { border-color: #555; min-height: 36px; font-size: 13px; }
 
       .sheet-print-title { font-size: 1rem; margin-bottom: 8px; }
+
+      .math-grid { grid-template-columns: repeat(3, 1fr); gap: 10px 20px; }
+      .math-problem { font-size: 1.1rem; }
     }
   </style>
 </head>
@@ -307,6 +339,84 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Math Problems Panel ── -->
+  <div class="panel no-print">
+    <h2>Math Problems</h2>
+    <div class="row">
+      <div class="field">
+        <label for="mathOp">Operation</label>
+        <select id="mathOp">
+          <option value="+">Addition (+)</option>
+          <option value="-">Subtraction (−)</option>
+          <option value="×">Multiplication (×)</option>
+          <option value="÷">Division (÷)</option>
+          <option value="mixed">Mixed (all four)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="mathMin">Min Number</label>
+        <input type="number" id="mathMin" value="1" min="0" />
+      </div>
+      <div class="field">
+        <label for="mathMax">Max Number</label>
+        <input type="number" id="mathMax" value="10" min="1" />
+      </div>
+      <div class="field">
+        <label for="mathCount">Problems per Page</label>
+        <input type="number" id="mathCount" value="30" min="1" max="100" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="mathTitle">Sheet Title (optional)</label>
+        <input type="text" id="mathTitle" placeholder="e.g. Addition Practice" />
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-green" onclick="generateMathSingle()">Generate Sheet</button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Mass Generate &amp; Print</h2>
+    <div class="row">
+      <div class="field">
+        <label for="mathMassCount">Number of Pages</label>
+        <select id="mathMassCount" onchange="toggleMathCustom()">
+          <option value="10">10 pages</option>
+          <option value="15">15 pages</option>
+          <option value="20">20 pages</option>
+          <option value="custom">Custom amount</option>
+        </select>
+      </div>
+      <div class="field" id="mathCustomField" style="display:none;">
+        <label for="mathCustomCount">Custom Amount</label>
+        <input type="number" id="mathCustomCount" value="5" min="1" max="200" />
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-purple" onclick="generateMathMass()">Generate Pages</button>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-orange" onclick="printMathMass()">Print All</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mathErrorBox"></div>
+  <div id="mathPreviewBanner" style="display:none;" class="no-print">
+    <div class="preview-banner">
+      <span id="mathPreviewLabel"></span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-orange" onclick="printMathMass()">🖨️ Print All</button>
+        <button class="btn btn-grey" onclick="clearMathPreview()">✕ Clear</button>
+      </div>
+    </div>
+  </div>
+  <div id="mathSheetsContainer"></div>
 
   <div id="errorBox"></div>
   <div id="previewBanner" style="display:none;" class="no-print">
@@ -501,6 +611,188 @@
       document.getElementById('sheetsContainer').innerHTML = '';
       document.getElementById('previewBanner').style.display = 'none';
       massGenerated = false;
+    }
+
+    // ── Math Problems ──────────────────────────
+    const OPS = ['+', '-', '×', '÷'];
+    let mathMassGenerated = false;
+
+    function toggleMathCustom() {
+      const val = document.getElementById('mathMassCount').value;
+      document.getElementById('mathCustomField').style.display = val === 'custom' ? 'flex' : 'none';
+    }
+
+    function showMathError(msg) {
+      document.getElementById('mathErrorBox').innerHTML =
+        `<div class="error no-print">${msg}</div>`;
+    }
+
+    function clearMathError() {
+      document.getElementById('mathErrorBox').innerHTML = '';
+    }
+
+    function getMathSettings() {
+      clearMathError();
+      const op    = document.getElementById('mathOp').value;
+      const min   = parseInt(document.getElementById('mathMin').value);
+      const max   = parseInt(document.getElementById('mathMax').value);
+      const count = parseInt(document.getElementById('mathCount').value);
+      const title = document.getElementById('mathTitle').value.trim();
+
+      if (isNaN(min) || isNaN(max) || isNaN(count)) {
+        showMathError('Please fill in all number fields.');
+        return null;
+      }
+      if (max <= min) {
+        showMathError('Max number must be greater than min number.');
+        return null;
+      }
+      if (count < 1 || count > 100) {
+        showMathError('Problems per page must be between 1 and 100.');
+        return null;
+      }
+      return { op, min, max, count, title };
+    }
+
+    function randInt(a, b) {
+      return Math.floor(Math.random() * (b - a + 1)) + a;
+    }
+
+    function buildMathProblems(s) {
+      const problems = [];
+      for (let i = 0; i < s.count; i++) {
+        const op = s.op === 'mixed' ? OPS[Math.floor(Math.random() * OPS.length)] : s.op;
+        let a = randInt(s.min, s.max);
+        let b = randInt(s.min, s.max);
+
+        if (op === '-' && b > a) [a, b] = [b, a];  // keep result positive
+        if (op === '÷') {
+          // Make sure it divides evenly
+          b = randInt(1, s.max);
+          a = b * randInt(s.min || 1, Math.max(s.min || 1, s.max));
+        }
+
+        problems.push({ a, b, op });
+      }
+      return problems;
+    }
+
+    function renderMathGrid(problems) {
+      const grid = document.createElement('div');
+      grid.className = 'math-grid';
+      problems.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'math-problem';
+        div.innerHTML = `${p.a} ${p.op} ${p.b} = <span class="math-answer-line"></span>`;
+        grid.appendChild(div);
+      });
+      return grid;
+    }
+
+    function buildMathWrapper(problems, index, total, s, isSingle) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'sheet-wrapper';
+
+      const header = document.createElement('div');
+      header.className = 'sheet-header no-print';
+
+      const label = document.createElement('span');
+      label.className = 'sheet-label';
+      label.textContent = total > 1 ? `Sheet ${index} of ${total}` : `${s.count} problems — ${s.op === 'mixed' ? 'Mixed' : s.op}`;
+      header.appendChild(label);
+
+      if (isSingle) {
+        const actions = document.createElement('div');
+        actions.className = 'sheet-actions';
+
+        const printBtn = document.createElement('button');
+        printBtn.className = 'btn btn-blue';
+        printBtn.textContent = '🖨️ Print';
+        printBtn.onclick = () => window.print();
+
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'btn btn-grey';
+        regenBtn.textContent = '🔄 Regenerate';
+        regenBtn.onclick = generateMathSingle;
+
+        actions.appendChild(printBtn);
+        actions.appendChild(regenBtn);
+        header.appendChild(actions);
+      }
+
+      wrapper.appendChild(header);
+
+      if (s.title) {
+        const t = document.createElement('div');
+        t.className = 'sheet-print-title';
+        t.textContent = s.title;
+        wrapper.appendChild(t);
+      }
+
+      wrapper.appendChild(renderMathGrid(problems));
+      return wrapper;
+    }
+
+    function generateMathSingle() {
+      const s = getMathSettings();
+      if (!s) return;
+      mathMassGenerated = false;
+      document.getElementById('mathPreviewBanner').style.display = 'none';
+
+      const problems = buildMathProblems(s);
+      const container = document.getElementById('mathSheetsContainer');
+      container.innerHTML = '';
+      container.appendChild(buildMathWrapper(problems, 1, 1, s, true));
+      container.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function getMathMassCount() {
+      const sel = document.getElementById('mathMassCount').value;
+      const count = sel === 'custom'
+        ? parseInt(document.getElementById('mathCustomCount').value)
+        : parseInt(sel);
+      if (!count || count < 1 || count > 200) {
+        showMathError('Please enter a number of pages between 1 and 200.');
+        return null;
+      }
+      return count;
+    }
+
+    function generateMathMass() {
+      const s = getMathSettings();
+      if (!s) return;
+      const count = getMathMassCount();
+      if (!count) return;
+
+      const container = document.getElementById('mathSheetsContainer');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= count; i++) {
+        const problems = buildMathProblems(s);
+        container.appendChild(buildMathWrapper(problems, i, count, s, false));
+      }
+
+      mathMassGenerated = true;
+      const banner = document.getElementById('mathPreviewBanner');
+      banner.style.display = 'block';
+      document.getElementById('mathPreviewLabel').textContent =
+        `${count} math sheet${count > 1 ? 's' : ''} — ${s.op === 'mixed' ? 'Mixed' : s.op}, ${s.count} problems each`;
+      banner.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function printMathMass() {
+      if (!mathMassGenerated) {
+        generateMathMass();
+        setTimeout(() => window.print(), 500);
+      } else {
+        window.print();
+      }
+    }
+
+    function clearMathPreview() {
+      document.getElementById('mathSheetsContainer').innerHTML = '';
+      document.getElementById('mathPreviewBanner').style.display = 'none';
+      mathMassGenerated = false;
     }
 
     function pdfOptions(filename) {
