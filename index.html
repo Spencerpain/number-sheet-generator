@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Number Sheet Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -104,6 +105,19 @@
     .btn-orange { background: #FF9800; color: white; }
     .btn-grey   { background: #9E9E9E; color: white; }
     .btn-purple { background: #9C27B0; color: white; }
+    .btn-teal   { background: #009688; color: white; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid white;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 
@@ -300,6 +314,7 @@
       <span id="previewLabel"></span>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn btn-orange" onclick="printMass()">🖨️ Print All</button>
+        <button class="btn btn-teal" id="massDownloadBtn" onclick="downloadMassPDF()">⬇️ Download PDF</button>
         <button class="btn btn-grey" onclick="clearPreview()">✕ Clear</button>
       </div>
     </div>
@@ -415,12 +430,18 @@
         printBtn.textContent = '🖨️ Print';
         printBtn.onclick = () => window.print();
 
+        const dlBtn = document.createElement('button');
+        dlBtn.className = 'btn btn-teal';
+        dlBtn.textContent = '⬇️ Download PDF';
+        dlBtn.onclick = () => downloadSinglePDF(wrapper, opts);
+
         const regenBtn = document.createElement('button');
         regenBtn.className = 'btn btn-grey';
         regenBtn.textContent = '🔄 Regenerate';
         regenBtn.onclick = generateSingle;
 
         actions.appendChild(printBtn);
+        actions.appendChild(dlBtn);
         actions.appendChild(regenBtn);
         header.appendChild(actions);
       }
@@ -487,6 +508,90 @@
       document.getElementById('sheetsContainer').innerHTML = '';
       document.getElementById('previewBanner').style.display = 'none';
       massGenerated = false;
+    }
+
+    function pdfOptions(filename) {
+      return {
+        margin: 0.4,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'], before: '.pdf-page-break' }
+      };
+    }
+
+    function setButtonLoading(btn, loading) {
+      if (loading) {
+        btn.dataset.original = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner"></span> Generating…';
+        btn.disabled = true;
+      } else {
+        btn.innerHTML = btn.dataset.original;
+        btn.disabled = false;
+      }
+    }
+
+    function downloadSinglePDF(sheetEl, opts) {
+      const btn = sheetEl.querySelector('.btn-teal');
+
+      // Build a clean print-only clone (no header/buttons)
+      const clone = document.createElement('div');
+      if (opts.title) {
+        const t = document.createElement('div');
+        t.style.cssText = 'text-align:center;font-size:16px;font-weight:bold;margin-bottom:10px;font-family:Arial,sans-serif;';
+        t.textContent = opts.title;
+        clone.appendChild(t);
+      }
+      const grid = sheetEl.querySelector('.grid').cloneNode(true);
+      // Inline essential grid styles
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(10,1fr);gap:3px;';
+      grid.querySelectorAll('.cell').forEach(c => {
+        c.style.cssText = 'border:2px solid #555;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;font-family:Arial,sans-serif;min-height:52px;aspect-ratio:1;' +
+          (c.classList.contains('filled') ? 'background:#f7f7f7;color:#222;' : 'background:white;');
+      });
+      clone.appendChild(grid);
+
+      const filename = `number-sheet-${opts.start}-${opts.end}${opts.title ? '-' + opts.title.replace(/\s+/g,'-') : ''}.pdf`;
+      setButtonLoading(btn, true);
+      html2pdf().set(pdfOptions(filename)).from(clone).save().then(() => setButtonLoading(btn, false));
+    }
+
+    function downloadMassPDF() {
+      const btn = document.getElementById('massDownloadBtn');
+      const sheets = document.querySelectorAll('.sheet-wrapper');
+      if (!sheets.length) return;
+
+      const s = getSettings();
+      const count = sheets.length;
+      const filename = `number-sheets-${s ? s.start + '-' + s.end : 'download'}-x${count}.pdf`;
+
+      // Build clean clone of all sheets with page breaks
+      const container = document.createElement('div');
+      sheets.forEach((sheet, i) => {
+        const wrap = document.createElement('div');
+        if (i > 0) wrap.classList.add('pdf-page-break');
+        wrap.style.cssText = 'padding:10px;';
+
+        const titleEl = sheet.querySelector('.sheet-print-title');
+        if (titleEl) {
+          const t = titleEl.cloneNode(true);
+          t.style.cssText = 'text-align:center;font-size:16px;font-weight:bold;margin-bottom:10px;font-family:Arial,sans-serif;';
+          wrap.appendChild(t);
+        }
+
+        const grid = sheet.querySelector('.grid').cloneNode(true);
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(10,1fr);gap:3px;';
+        grid.querySelectorAll('.cell').forEach(c => {
+          c.style.cssText = 'border:2px solid #555;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;font-family:Arial,sans-serif;min-height:52px;aspect-ratio:1;' +
+            (c.classList.contains('filled') ? 'background:#f7f7f7;color:#222;' : 'background:white;');
+        });
+        wrap.appendChild(grid);
+        container.appendChild(wrap);
+      });
+
+      setButtonLoading(btn, true);
+      html2pdf().set(pdfOptions(filename)).from(container).save().then(() => setButtonLoading(btn, false));
     }
   </script>
 
