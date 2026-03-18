@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Number Sheet Generator</title>
   <style>
-    /* ── Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -29,7 +28,6 @@
       font-size: 0.95rem;
     }
 
-    /* ── Controls Panel ── */
     .panel {
       background: white;
       border-radius: 12px;
@@ -71,23 +69,23 @@
       color: #555;
     }
 
-    input[type="number"], select {
+    input[type="number"], input[type="text"], select {
       padding: 10px 12px;
       border: 2px solid #ddd;
       border-radius: 8px;
       font-size: 1rem;
-      width: 130px;
       transition: border-color 0.2s;
     }
 
-    input[type="number"]:focus, select:focus {
+    input[type="number"] { width: 130px; }
+    input[type="text"]   { width: 280px; }
+    select               { width: 210px; cursor: pointer; }
+
+    input:focus, select:focus {
       outline: none;
       border-color: #4CAF50;
     }
 
-    select { width: 200px; cursor: pointer; }
-
-    /* ── Buttons ── */
     .btn {
       padding: 11px 22px;
       border: none;
@@ -98,21 +96,36 @@
       transition: filter 0.15s, transform 0.1s;
     }
 
-    .btn:hover { filter: brightness(1.08); }
+    .btn:hover  { filter: brightness(1.08); }
     .btn:active { transform: scale(0.97); }
 
     .btn-green  { background: #4CAF50; color: white; }
     .btn-blue   { background: #2196F3; color: white; }
     .btn-orange { background: #FF9800; color: white; }
     .btn-grey   { background: #9E9E9E; color: white; }
+    .btn-purple { background: #9C27B0; color: white; }
 
-    .divider {
-      border: none;
-      border-top: 1px solid #eee;
-      margin: 20px 0;
+    .divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+
+    /* Preview banner */
+    .preview-banner {
+      background: #fff8e1;
+      border: 2px solid #FFB300;
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    /* ── Sheet Preview ── */
+    .preview-banner span { font-weight: bold; color: #5d4037; }
+
     #sheetsContainer {
       max-width: 860px;
       margin: 0 auto;
@@ -130,21 +143,26 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
-    .sheet-title {
-      font-size: 1rem;
+    .sheet-label {
+      font-size: 0.9rem;
       color: #888;
       font-weight: bold;
     }
 
-    .sheet-actions {
-      display: flex;
-      gap: 10px;
+    .sheet-actions { display: flex; gap: 10px; }
+
+    /* Printed title inside sheet */
+    .sheet-print-title {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #222;
     }
 
-    /* ── Number Grid ── */
     .grid {
       display: grid;
       grid-template-columns: repeat(10, 1fr);
@@ -163,22 +181,10 @@
       min-height: 44px;
     }
 
-    .cell.filled {
-      background: #f7f7f7;
-      color: #222;
-    }
+    .cell.filled      { background: #f7f7f7; color: #222; }
+    .cell.blank       { background: white; }
+    .cell.placeholder { border: none; background: transparent; }
 
-    .cell.blank {
-      background: white;
-      color: transparent;
-    }
-
-    .cell.placeholder {
-      border: none;
-      background: transparent;
-    }
-
-    /* ── Inline error ── */
     .error {
       background: #fdecea;
       color: #c62828;
@@ -186,13 +192,16 @@
       border-radius: 8px;
       margin-bottom: 12px;
       font-size: 0.9rem;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    /* ── Print ── */
     @media print {
       body { background: white; padding: 0; }
 
-      h1, .subtitle, .panel, .sheet-header, .no-print { display: none !important; }
+      h1, .subtitle, .panel, .sheet-header,
+      .preview-banner, .no-print { display: none !important; }
 
       #sheetsContainer { max-width: 100%; margin: 0; }
 
@@ -206,11 +215,9 @@
 
       .sheet-wrapper:last-child { page-break-after: avoid; }
 
-      .cell {
-        border-color: #555;
-        min-height: 36px;
-        font-size: 13px;
-      }
+      .cell { border-color: #555; min-height: 36px; font-size: 13px; }
+
+      .sheet-print-title { font-size: 1rem; margin-bottom: 8px; }
     }
   </style>
 </head>
@@ -221,7 +228,6 @@
 
   <div class="panel no-print">
     <h2>Sheet Settings</h2>
-
     <div class="row">
       <div class="field">
         <label for="startNum">Start Number</label>
@@ -229,7 +235,16 @@
       </div>
       <div class="field">
         <label for="endNum">End Number</label>
-        <input type="number" id="endNum" value="100" min="1" />
+        <input type="number" id="endNum" value="99" min="1" />
+      </div>
+      <div class="field">
+        <label for="countBy">Count By</label>
+        <select id="countBy">
+          <option value="1" selected>1s</option>
+          <option value="2">2s</option>
+          <option value="5">5s</option>
+          <option value="10">10s</option>
+        </select>
       </div>
       <div class="field">
         <label for="difficulty">Difficulty</label>
@@ -238,6 +253,12 @@
           <option value="medium" selected>Medium — some blanks (~50%)</option>
           <option value="hard">Hard — many blanks (~75%)</option>
         </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="sheetTitle">Sheet Title (optional)</label>
+        <input type="text" id="sheetTitle" placeholder="e.g. Monday Practice" />
       </div>
       <div class="field">
         <label>&nbsp;</label>
@@ -264,16 +285,30 @@
       </div>
       <div class="field">
         <label>&nbsp;</label>
-        <button class="btn btn-orange" onclick="generateMass()">Generate &amp; Print All</button>
+        <button class="btn btn-purple" onclick="previewMass()">Preview Pages</button>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-orange" onclick="printMass()">Print All</button>
       </div>
     </div>
   </div>
 
   <div id="errorBox"></div>
+  <div id="previewBanner" style="display:none;" class="no-print">
+    <div class="preview-banner">
+      <span id="previewLabel"></span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-orange" onclick="printMass()">🖨️ Print All</button>
+        <button class="btn btn-grey" onclick="clearPreview()">✕ Clear</button>
+      </div>
+    </div>
+  </div>
   <div id="sheetsContainer"></div>
 
   <script>
     const BLANK_RATES = { easy: 0.20, medium: 0.50, hard: 0.75 };
+    let massGenerated = false;
 
     function toggleCustom() {
       const val = document.getElementById('massCount').value;
@@ -281,8 +316,8 @@
     }
 
     function showError(msg) {
-      const box = document.getElementById('errorBox');
-      box.innerHTML = `<div class="error no-print">${msg}</div>`;
+      document.getElementById('errorBox').innerHTML =
+        `<div class="error no-print">${msg}</div>`;
     }
 
     function clearError() {
@@ -291,9 +326,11 @@
 
     function getSettings() {
       clearError();
-      const start = parseInt(document.getElementById('startNum').value);
-      const end   = parseInt(document.getElementById('endNum').value);
-      const diff  = document.getElementById('difficulty').value;
+      const start  = parseInt(document.getElementById('startNum').value);
+      const end    = parseInt(document.getElementById('endNum').value);
+      const diff   = document.getElementById('difficulty').value;
+      const step   = parseInt(document.getElementById('countBy').value);
+      const title  = document.getElementById('sheetTitle').value.trim();
 
       if (isNaN(start) || isNaN(end)) {
         showError('Please enter valid start and end numbers.');
@@ -303,26 +340,40 @@
         showError('End number must be greater than start number.');
         return null;
       }
-      if (end - start > 2000) {
-        showError('Range too large — please keep it under 2000 numbers.');
+      const count = Math.floor((end - start) / step) + 1;
+      if (count > 2000) {
+        showError('Too many numbers — reduce the range or increase the count-by step.');
         return null;
       }
-      return { start, end, diff };
+      return { start, end, diff, step, title };
     }
 
-    function buildCells(start, end, diff) {
-      const rate  = BLANK_RATES[diff];
-      const total = end - start + 1;
-      const rows  = Math.ceil(total / 10);
+    function getMassCount() {
+      const sel = document.getElementById('massCount').value;
+      const count = sel === 'custom'
+        ? parseInt(document.getElementById('customCount').value)
+        : parseInt(sel);
+      if (!count || count < 1 || count > 200) {
+        showError('Please enter a number of pages between 1 and 200.');
+        return null;
+      }
+      return count;
+    }
+
+    function buildCells(start, end, step, diff) {
+      const rate   = BLANK_RATES[diff];
+      const nums   = [];
+      for (let n = start; n <= end; n += step) nums.push(n);
+
+      const rows  = Math.ceil(nums.length / 10);
       const cells = [];
 
       for (let i = 0; i < rows * 10; i++) {
-        const num = start + i;
-        if (num > end) {
+        if (i >= nums.length) {
           cells.push({ type: 'placeholder', label: '' });
         } else {
           const blank = Math.random() < rate;
-          cells.push({ type: blank ? 'blank' : 'filled', label: String(num) });
+          cells.push({ type: blank ? 'blank' : 'filled', label: String(nums[i]) });
         }
       }
       return cells;
@@ -334,46 +385,56 @@
       cells.forEach(c => {
         const div = document.createElement('div');
         div.className = `cell ${c.type}`;
-        div.textContent = c.type === 'filled' ? c.label : '';
+        if (c.type === 'filled') div.textContent = c.label;
         grid.appendChild(div);
       });
       return grid;
     }
 
-    function buildSheetWrapper(cells, index, total, opts) {
+    function buildSheetWrapper(cells, index, total, opts, isSingle) {
       const wrapper = document.createElement('div');
       wrapper.className = 'sheet-wrapper';
 
-      // Header (hidden when printing)
+      // Screen-only header
       const header = document.createElement('div');
       header.className = 'sheet-header no-print';
 
-      const title = document.createElement('span');
-      title.className = 'sheet-title';
-      title.textContent = total > 1
-        ? `Sheet ${index} of ${total} — ${opts.start} to ${opts.end}`
-        : `${opts.start} to ${opts.end}`;
-      header.appendChild(title);
+      const label = document.createElement('span');
+      label.className = 'sheet-label';
+      label.textContent = total > 1
+        ? `Sheet ${index} of ${total}`
+        : `${opts.start} to ${opts.end} — count by ${opts.step}s`;
+      header.appendChild(label);
 
-      const actions = document.createElement('div');
-      actions.className = 'sheet-actions';
+      if (isSingle) {
+        const actions = document.createElement('div');
+        actions.className = 'sheet-actions';
 
-      if (total === 1) {
         const printBtn = document.createElement('button');
         printBtn.className = 'btn btn-blue';
         printBtn.textContent = '🖨️ Print';
         printBtn.onclick = () => window.print();
-        actions.appendChild(printBtn);
 
         const regenBtn = document.createElement('button');
         regenBtn.className = 'btn btn-grey';
         regenBtn.textContent = '🔄 Regenerate';
         regenBtn.onclick = generateSingle;
+
+        actions.appendChild(printBtn);
         actions.appendChild(regenBtn);
+        header.appendChild(actions);
       }
 
-      header.appendChild(actions);
       wrapper.appendChild(header);
+
+      // Printed title (shows on paper)
+      if (opts.title) {
+        const t = document.createElement('div');
+        t.className = 'sheet-print-title';
+        t.textContent = opts.title;
+        wrapper.appendChild(t);
+      }
+
       wrapper.appendChild(renderGrid(cells));
       return wrapper;
     }
@@ -381,37 +442,51 @@
     function generateSingle() {
       const s = getSettings();
       if (!s) return;
+      massGenerated = false;
+      document.getElementById('previewBanner').style.display = 'none';
 
-      const cells = buildCells(s.start, s.end, s.diff);
+      const cells = buildCells(s.start, s.end, s.step, s.diff);
       const container = document.getElementById('sheetsContainer');
       container.innerHTML = '';
-      container.appendChild(buildSheetWrapper(cells, 1, 1, s));
+      container.appendChild(buildSheetWrapper(cells, 1, 1, s, true));
     }
 
-    function generateMass() {
+    function previewMass() {
       const s = getSettings();
       if (!s) return;
-
-      const sel = document.getElementById('massCount').value;
-      const count = sel === 'custom'
-        ? parseInt(document.getElementById('customCount').value)
-        : parseInt(sel);
-
-      if (!count || count < 1 || count > 200) {
-        showError('Please enter a number of pages between 1 and 200.');
-        return;
-      }
+      const count = getMassCount();
+      if (!count) return;
 
       const container = document.getElementById('sheetsContainer');
       container.innerHTML = '';
 
       for (let i = 1; i <= count; i++) {
-        const cells = buildCells(s.start, s.end, s.diff);
-        container.appendChild(buildSheetWrapper(cells, i, count, s));
+        const cells = buildCells(s.start, s.end, s.step, s.diff);
+        container.appendChild(buildSheetWrapper(cells, i, count, s, false));
       }
 
-      // Small delay so DOM renders before print dialog
-      setTimeout(() => window.print(), 400);
+      massGenerated = true;
+      const banner = document.getElementById('previewBanner');
+      banner.style.display = 'block';
+      document.getElementById('previewLabel').textContent =
+        `Previewing ${count} sheet${count > 1 ? 's' : ''} — count by ${s.step}s, ${s.start} to ${s.end}`;
+
+      banner.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function printMass() {
+      if (!massGenerated) {
+        previewMass();
+        setTimeout(() => window.print(), 500);
+      } else {
+        window.print();
+      }
+    }
+
+    function clearPreview() {
+      document.getElementById('sheetsContainer').innerHTML = '';
+      document.getElementById('previewBanner').style.display = 'none';
+      massGenerated = false;
     }
   </script>
 
