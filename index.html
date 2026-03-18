@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Number Sheet Generator</title>
+  <style>
+    /* ── Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      color: #333;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 6px;
+      color: #2c3e50;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+
+    /* ── Controls Panel ── */
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .panel h2 {
+      font-size: 1rem;
+      color: #555;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+
+    .row:last-child { margin-bottom: 0; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #555;
+    }
+
+    input[type="number"], select {
+      padding: 10px 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 130px;
+      transition: border-color 0.2s;
+    }
+
+    input[type="number"]:focus, select:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    select { width: 200px; cursor: pointer; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 11px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+    }
+
+    .btn:hover { filter: brightness(1.08); }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-green  { background: #4CAF50; color: white; }
+    .btn-blue   { background: #2196F3; color: white; }
+    .btn-orange { background: #FF9800; color: white; }
+    .btn-grey   { background: #9E9E9E; color: white; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #eee;
+      margin: 20px 0;
+    }
+
+    /* ── Sheet Preview ── */
+    #sheetsContainer {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .sheet-wrapper {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .sheet-title {
+      font-size: 1rem;
+      color: #888;
+      font-weight: bold;
+    }
+
+    .sheet-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* ── Number Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 3px;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      border: 2px solid #aaa;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(10px, 1.8vw, 18px);
+      font-weight: bold;
+      min-height: 44px;
+    }
+
+    .cell.filled {
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    .cell.blank {
+      background: white;
+      color: transparent;
+    }
+
+    .cell.placeholder {
+      border: none;
+      background: transparent;
+    }
+
+    /* ── Inline error ── */
+    .error {
+      background: #fdecea;
+      color: #c62828;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: white; padding: 0; }
+
+      h1, .subtitle, .panel, .sheet-header, .no-print { display: none !important; }
+
+      #sheetsContainer { max-width: 100%; margin: 0; }
+
+      .sheet-wrapper {
+        box-shadow: none;
+        border-radius: 0;
+        padding: 12px;
+        margin-bottom: 0;
+        page-break-after: always;
+      }
+
+      .sheet-wrapper:last-child { page-break-after: avoid; }
+
+      .cell {
+        border-color: #555;
+        min-height: 36px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Number Sheet Generator</h1>
+  <p class="subtitle">Generate fill-in-the-blank number sheets — ready to print</p>
+
+  <div class="panel no-print">
+    <h2>Sheet Settings</h2>
+
+    <div class="row">
+      <div class="field">
+        <label for="startNum">Start Number</label>
+        <input type="number" id="startNum" value="0" min="0" />
+      </div>
+      <div class="field">
+        <label for="endNum">End Number</label>
+        <input type="number" id="endNum" value="100" min="1" />
+      </div>
+      <div class="field">
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy — few blanks (~20%)</option>
+          <option value="medium" selected>Medium — some blanks (~50%)</option>
+          <option value="hard">Hard — many blanks (~75%)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-green" onclick="generateSingle()">Generate Sheet</button>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <h2>Mass Generate &amp; Print</h2>
+    <div class="row">
+      <div class="field">
+        <label for="massCount">Number of Pages</label>
+        <select id="massCount" onchange="toggleCustom()">
+          <option value="10">10 pages</option>
+          <option value="15">15 pages</option>
+          <option value="20">20 pages</option>
+          <option value="custom">Custom amount</option>
+        </select>
+      </div>
+      <div class="field" id="customField" style="display:none;">
+        <label for="customCount">Custom Amount</label>
+        <input type="number" id="customCount" value="5" min="1" max="200" />
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-orange" onclick="generateMass()">Generate &amp; Print All</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBox"></div>
+  <div id="sheetsContainer"></div>
+
+  <script>
+    const BLANK_RATES = { easy: 0.20, medium: 0.50, hard: 0.75 };
+
+    function toggleCustom() {
+      const val = document.getElementById('massCount').value;
+      document.getElementById('customField').style.display = val === 'custom' ? 'flex' : 'none';
+    }
+
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.innerHTML = `<div class="error no-print">${msg}</div>`;
+    }
+
+    function clearError() {
+      document.getElementById('errorBox').innerHTML = '';
+    }
+
+    function getSettings() {
+      clearError();
+      const start = parseInt(document.getElementById('startNum').value);
+      const end   = parseInt(document.getElementById('endNum').value);
+      const diff  = document.getElementById('difficulty').value;
+
+      if (isNaN(start) || isNaN(end)) {
+        showError('Please enter valid start and end numbers.');
+        return null;
+      }
+      if (end <= start) {
+        showError('End number must be greater than start number.');
+        return null;
+      }
+      if (end - start > 2000) {
+        showError('Range too large — please keep it under 2000 numbers.');
+        return null;
+      }
+      return { start, end, diff };
+    }
+
+    function buildCells(start, end, diff) {
+      const rate  = BLANK_RATES[diff];
+      const total = end - start + 1;
+      const rows  = Math.ceil(total / 10);
+      const cells = [];
+
+      for (let i = 0; i < rows * 10; i++) {
+        const num = start + i;
+        if (num > end) {
+          cells.push({ type: 'placeholder', label: '' });
+        } else {
+          const blank = Math.random() < rate;
+          cells.push({ type: blank ? 'blank' : 'filled', label: String(num) });
+        }
+      }
+      return cells;
+    }
+
+    function renderGrid(cells) {
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      cells.forEach(c => {
+        const div = document.createElement('div');
+        div.className = `cell ${c.type}`;
+        div.textContent = c.type === 'filled' ? c.label : '';
+        grid.appendChild(div);
+      });
+      return grid;
+    }
+
+    function buildSheetWrapper(cells, index, total, opts) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'sheet-wrapper';
+
+      // Header (hidden when printing)
+      const header = document.createElement('div');
+      header.className = 'sheet-header no-print';
+
+      const title = document.createElement('span');
+      title.className = 'sheet-title';
+      title.textContent = total > 1
+        ? `Sheet ${index} of ${total} — ${opts.start} to ${opts.end}`
+        : `${opts.start} to ${opts.end}`;
+      header.appendChild(title);
+
+      const actions = document.createElement('div');
+      actions.className = 'sheet-actions';
+
+      if (total === 1) {
+        const printBtn = document.createElement('button');
+        printBtn.className = 'btn btn-blue';
+        printBtn.textContent = '🖨️ Print';
+        printBtn.onclick = () => window.print();
+        actions.appendChild(printBtn);
+
+        const regenBtn = document.createElement('button');
+        regenBtn.className = 'btn btn-grey';
+        regenBtn.textContent = '🔄 Regenerate';
+        regenBtn.onclick = generateSingle;
+        actions.appendChild(regenBtn);
+      }
+
+      header.appendChild(actions);
+      wrapper.appendChild(header);
+      wrapper.appendChild(renderGrid(cells));
+      return wrapper;
+    }
+
+    function generateSingle() {
+      const s = getSettings();
+      if (!s) return;
+
+      const cells = buildCells(s.start, s.end, s.diff);
+      const container = document.getElementById('sheetsContainer');
+      container.innerHTML = '';
+      container.appendChild(buildSheetWrapper(cells, 1, 1, s));
+    }
+
+    function generateMass() {
+      const s = getSettings();
+      if (!s) return;
+
+      const sel = document.getElementById('massCount').value;
+      const count = sel === 'custom'
+        ? parseInt(document.getElementById('customCount').value)
+        : parseInt(sel);
+
+      if (!count || count < 1 || count > 200) {
+        showError('Please enter a number of pages between 1 and 200.');
+        return;
+      }
+
+      const container = document.getElementById('sheetsContainer');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= count; i++) {
+        const cells = buildCells(s.start, s.end, s.diff);
+        container.appendChild(buildSheetWrapper(cells, i, count, s));
+      }
+
+      // Small delay so DOM renders before print dialog
+      setTimeout(() => window.print(), 400);
+    }
+  </script>
+
+</body>
+</html>
